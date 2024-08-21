@@ -98,11 +98,50 @@ find_package(ZLIB REQUIRED)
 find_package(CryptoPP 8.2.0 REQUIRED)
 find_package(Scrypt REQUIRED)
 
+
+
+# ----------------------------------------
+# Find GRPC and all dependencies
+
+# Check compiler variable sizes
+#include(cmake/CheckSizes.cmake)
+
+# absl is needed for GRPC
+# For Ubuntu 24 / apt, the package is "absl" (lowercase)
+# Also works on Ubuntu 22
+# bkd-cpp/cmake/FindAbsl.cmake (i.e. find_package(Absl with capital A) is broken for Ubuntu 22/24
+#find_package(Absl REQUIRED) # Built-in is hardcoded to SHARED, this one to STATIC
+find_package(absl REQUIRED)
+
+# c-ares is needed for GRPC
+# For Ubuntu 24 / apt, the package is "c-ares" (lowercase)
+#find_package(c-ares REQUIRED)
+#
+# BUT
+#
+# ubuntu 22 requires this one, and it also works on ubuntu 24
+# This is still working, so we will use our bdk-cpp/cmake/FindCares.cmake
+find_package(Cares REQUIRED)
+
+# This one just works
+find_package(Protobuf REQUIRED)
+
+# For Ubuntu 24 / apt, the package is "gRPC"
+#find_package(gRPC REQUIRED)
+#
+# ubuntu 22 requires this one, and works on ubuntu 24 
+# This is still working, so we will use our bdk-cpp/cmake/FindGRPC.cmake
+find_package(GRPC REQUIRED)
+# ----------------------------------------
+
+
+
 # Add external modules
-include(cmake/ProjectEthash.cmake)        # Ethash
-include(cmake/ProjectSecp256k1.cmake)     # Bitcoin core fast implementation
-include(cmake/ProjectSpeedb.cmake)        # Speedb (Level/RocksDB drop-in replacement)
-include(cmake/ProjectEVMOne.cmake)        # EVMOne (EVMOne + EVMC)
+#include(cmake/ProjectEthash.cmake)        # Ethash
+#include(cmake/ProjectSecp256k1.cmake)     # Bitcoin core fast implementation
+#include(cmake/ProjectSpeedb.cmake)        # Speedb (Level/RocksDB drop-in replacement)
+#include(cmake/ProjectEVMOne.cmake)        # EVMOne (EVMOne + EVMC)
+
 
 
 # Add catch2 as a library
@@ -140,6 +179,161 @@ add_subdirectory(src/net)
 add_subdirectory(src/utils)
 add_subdirectory(tests)
 
+
+# Compile all .proto files to their C++ equivalent for GRPC
+
+#add_custom_command(
+#  OUTPUT "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.grpc.pb.cc"
+#         "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.grpc.pb.h"
+#  COMMAND "protoc"
+#  ARGS --grpc_out="${CMAKE_SOURCE_DIR}/proto"
+#       --plugin=protoc-gen-grpc="${GRPC_CPP_PLUGIN}"
+#       --proto_path="${CMAKE_SOURCE_DIR}/proto"
+#       "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.proto"
+#)
+
+# Compile all .proto files to their C++ equivalent for Protobuf
+
+#add_custom_command(
+#  OUTPUT "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.pb.cc"
+#         "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.pb.h"
+#  COMMAND "protoc"
+#  ARGS --cpp_out="${CMAKE_SOURCE_DIR}/proto"
+#       --proto_path="${CMAKE_SOURCE_DIR}/proto"
+#       "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.proto"
+#)
+
+
+# Generate a static (.a) library called ProtoFiles with all the generated cc/h for Protobuf
+#add_library(ProtoFiles
+#"${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.pb.cc"
+#"${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.pb.h"
+#)
+
+# Generate a static (.a) library called gen-grpc with all the generated cc/h for GRPC
+#add_library (gen-grpc
+#"${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.grpc.pb.cc"
+#"${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.grpc.pb.h"
+#${ProtoFiles}
+#)
+
+# Define the root proto directory
+set(PROTO_ROOT_DIR "${CMAKE_SOURCE_DIR}/proto")
+
+# Find all .proto files in the proto/ directory recursively
+file(GLOB_RECURSE PROTO_FILES "${PROTO_ROOT_DIR}/*.proto")
+
+# Custom target to clean all generated .cc and .h files
+add_custom_target(CleanProtoFiles ALL
+    COMMAND ${CMAKE_COMMAND} -E echo "Cleaning old generated .cc and .h files..."
+    COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/CleanProtoFiles.cmake"
+)
+
+# Create a CMake script to remove files
+file(WRITE "${CMAKE_BINARY_DIR}/CleanProtoFiles.cmake"
+"file(GLOB_RECURSE pb_files \"${PROTO_ROOT_DIR}/*.pb.cc\" \"${PROTO_ROOT_DIR}/*.pb.h\")
+file(GLOB_RECURSE grpc_files \"${PROTO_ROOT_DIR}/*.grpc.pb.cc\" \"${PROTO_ROOT_DIR}/*.grpc.pb.h\")
+
+#file(REMOVE \${pb_files})
+#file(REMOVE \${grpc_files})
+
+# Remove .pb files if they exist
+if(pb_files)
+    file(REMOVE \${pb_files})
+    message(STATUS \"Removed .pb.cc and .pb.h files.\")
+else()
+    message(STATUS \"No .pb.cc or .pb.h files to remove.\")
+endif()
+
+# Remove .grpc.pb files if they exist
+if(grpc_files)
+    file(REMOVE \${grpc_files})
+    message(STATUS \"Removed .grpc.pb.cc and .grpc.pb.h files.\")
+else()
+    message(STATUS \"No .grpc.pb.cc or .grpc.pb.h files to remove.\")
+endif()
+
+message(STATUS \"Removed generated .cc and .h files.\")"
+)
+
+add_custom_target(ForceClean ALL DEPENDS CleanProtoFiles)
+set(clean_exit_message "Cleaning cc and h done.")
+message(STATUS ${clean_exit_message})
+# Exit CMake after running the cleaning command
+#return()
+
+# Initialize lists to hold generated files
+set(PROTO_SOURCES)
+set(GRPC_SOURCES)
+
+# Loop through each .proto file and create custom commands
+foreach(PROTO_FILE IN LISTS PROTO_FILES)
+    # Get the relative path from the proto/ directory
+    file(RELATIVE_PATH REL_PATH "${PROTO_ROOT_DIR}" "${PROTO_FILE}")
+
+    # Remove the .proto extension
+    string(REPLACE ".proto" "" PROTO_BASE "${REL_PATH}")
+
+    # Define the output files for Protobuf
+    set(PB_CC_FILE "${PROTO_ROOT_DIR}/${PROTO_BASE}.pb.cc")
+    set(PB_H_FILE "${PROTO_ROOT_DIR}/${PROTO_BASE}.pb.h")
+
+    # Define the output files for gRPC
+    set(GRPC_PB_CC_FILE "${PROTO_ROOT_DIR}/${PROTO_BASE}.grpc.pb.cc")
+    set(GRPC_PB_H_FILE "${PROTO_ROOT_DIR}/${PROTO_BASE}.grpc.pb.h")
+
+    # Add the custom command for generating Protobuf files
+    add_custom_command(
+      OUTPUT ${PB_CC_FILE} ${PB_H_FILE}
+      COMMAND protoc
+      ARGS --cpp_out=${PROTO_ROOT_DIR}
+           --proto_path=${PROTO_ROOT_DIR}
+           ${PROTO_FILE}
+      #DEPENDS CleanProtoFiles
+    )
+
+    # Add the custom command for generating gRPC files
+    add_custom_command(
+      OUTPUT ${GRPC_PB_CC_FILE} ${GRPC_PB_H_FILE}
+      COMMAND protoc
+      ARGS --grpc_out=${PROTO_ROOT_DIR}
+           --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
+           --proto_path=${PROTO_ROOT_DIR}
+           ${PROTO_FILE}
+      #DEPENDS CleanProtoFiles
+    )
+
+    # Add the generated files to the lists
+    list(APPEND PROTO_SOURCES ${PB_CC_FILE} ${PB_H_FILE})
+    list(APPEND GRPC_SOURCES ${GRPC_PB_CC_FILE} ${GRPC_PB_H_FILE})
+endforeach()
+
+# Create the ProtoFiles static library from the generated Protobuf files
+add_library(ProtoFiles STATIC ${PROTO_SOURCES})
+
+# Create the gen-grpc static library from the generated gRPC files
+add_library(gen-grpc STATIC ${GRPC_SOURCES})
+
+# The gen-grpc library (GRPC C++ code generated from the .proto files) needs to link against these
+target_link_libraries(gen-grpc PUBLIC ${Protobuf_LIBRARIES} ${GRPC_LIBRARIES} ${CARES_LIBRARY} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} absl::flags)
+
+# So that the #include "cometbft/..." etc. statements in the generate cc/h files works
+target_include_directories(ProtoFiles PUBLIC "${PROTO_ROOT_DIR}")
+target_include_directories(gen-grpc PUBLIC "${PROTO_ROOT_DIR}")
+
+
+# Hack to get protoc to run immediately (here)
+# Create a custom target to generate the proto files
+#add_custom_target(GenerateProtoFiles ALL
+#  DEPENDS "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.grpc.pb.cc"
+#          "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.grpc.pb.h"
+#          "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.pb.cc"
+#          "${CMAKE_SOURCE_DIR}/proto/cometbft/abci/v1/service.pb.h"
+#)
+
+
+
+
 add_library(bdk_lib STATIC
   ${UTILS_HEADERS}
   ${UTILS_SOURCES}
@@ -151,11 +345,26 @@ add_library(bdk_lib STATIC
   ${NET_SOURCES}
 )
 
+# Link the cc/h files generated by protoc into bdk_lib 
+add_dependencies(bdk_lib gen-grpc ProtoFiles)
+
 target_include_directories(bdk_lib PRIVATE ${CMAKE_SOURCE_DIR}/include ${OPENSSL_INCLUDE_DIR})
 
 target_link_libraries(bdk_lib PRIVATE EvmcInstructions EvmcLoader EvmcTooling Evmone
   ${CRYPTOPP_LIBRARIES} ${SCRYPT_LIBRARY} Secp256k1 Ethash ${ETHASH_BYPRODUCTS}
-  Speedb ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
+  Speedb ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES}
+
+  ${Protobuf_LIBRARIES} ${GRPC_LIBRARIES} ${CARES_LIBRARY} absl::flags
+
+  #grpc
+  #grpc++
+  #grpc++_reflection
+  #grpc_unsecure
+  #protobuf::libprotobuf
+  #absl::base
+  #absl::synchronization
+  #cares
+  )
 
 add_subdirectory(src/bins)
 

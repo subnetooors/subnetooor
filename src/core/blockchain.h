@@ -91,6 +91,7 @@ class Blockchain : public Log::LogicalLocationProvider {
     HTTPServer http_;           ///< HTTP server.
     Syncer syncer_;             ///< Blockchain syncer.
     Consensus consensus_;       ///< Block and transaction processing.
+    ExternalEngine ext_;
 
   public:
     /**
