@@ -119,8 +119,9 @@ find_package(absl REQUIRED)
 #
 # BUT
 #
-# ubuntu 22 requires this one, and it also works on ubuntu 24
+# ubuntu 22 requires this one:
 # This is still working, so we will use our bdk-cpp/cmake/FindCares.cmake
+# FindCares.cmake was fixed to also work with the c-ares lib (dev) that comes with Ubuntu 24
 find_package(Cares REQUIRED)
 
 # This one just works
@@ -136,11 +137,13 @@ find_package(GRPC REQUIRED)
 
 
 
+# COMMENT THESE OUT when trying stuff for the GRPC/comet proto files integration
+#
 # Add external modules
-#include(cmake/ProjectEthash.cmake)        # Ethash
-#include(cmake/ProjectSecp256k1.cmake)     # Bitcoin core fast implementation
-#include(cmake/ProjectSpeedb.cmake)        # Speedb (Level/RocksDB drop-in replacement)
-#include(cmake/ProjectEVMOne.cmake)        # EVMOne (EVMOne + EVMC)
+include(cmake/ProjectEthash.cmake)        # Ethash
+include(cmake/ProjectSecp256k1.cmake)     # Bitcoin core fast implementation
+include(cmake/ProjectSpeedb.cmake)        # Speedb (Level/RocksDB drop-in replacement)
+include(cmake/ProjectEVMOne.cmake)        # EVMOne (EVMOne + EVMC)
 
 
 
@@ -256,15 +259,56 @@ endif()
 message(STATUS \"Removed generated .cc and .h files.\")"
 )
 
+# This forces the removal of all cc and h files from proto right here
 add_custom_target(ForceClean ALL DEPENDS CleanProtoFiles)
 set(clean_exit_message "Cleaning cc and h done.")
 message(STATUS ${clean_exit_message})
 # Exit CMake after running the cleaning command
 #return()
 
+
+# Echo the proto files list
+message(STATUS "Proto files found:")
+foreach(PROTO_FILE ${PROTO_FILES})
+    message(STATUS "  ${PROTO_FILE}")
+endforeach()
+
+
+
+
+# FIXME: for some reason, the proto/cometbft/consensus/v1/*.proto stuff is generating
+#        garbage cc/h files that are internally inconsistent and don't compile.
+#
+# This removes the consensus/ folder from the proto files to compile
+#
+# types.proto cc/h files fail
+# wal.proto cc/h fails because it includes types.proto h file
+#
+# Create a list to store the files to be removed
+set(REMOVE_LIST)
+# Loop through each file in PROTO_FILES
+foreach(PROTO_FILE ${PROTO_FILES})
+    # Check if the file matches the pattern "/consensus/"
+    if(PROTO_FILE MATCHES "/consensus/")
+        list(APPEND REMOVE_LIST ${PROTO_FILE})
+    endif()
+endforeach()
+# Remove the matching files from the PROTO_FILES list
+list(REMOVE_ITEM PROTO_FILES ${REMOVE_LIST})
+
+
+# Echo the files that matched the pattern
+message(STATUS "Removed proto files:")
+foreach(REMOVE_FILE ${REMOVE_LIST})
+    message(STATUS "  ${REMOVE_FILE}")
+endforeach()
+
+
 # Initialize lists to hold generated files
 set(PROTO_SOURCES)
 set(GRPC_SOURCES)
+set(PROTO_HEADERS)
+set(GRPC_HEADERS)
 
 # Loop through each .proto file and create custom commands
 foreach(PROTO_FILE IN LISTS PROTO_FILES)
@@ -304,8 +348,17 @@ foreach(PROTO_FILE IN LISTS PROTO_FILES)
     )
 
     # Add the generated files to the lists
-    list(APPEND PROTO_SOURCES ${PB_CC_FILE} ${PB_H_FILE})
-    list(APPEND GRPC_SOURCES ${GRPC_PB_CC_FILE} ${GRPC_PB_H_FILE})
+    #list(APPEND PROTO_SOURCES ${PB_CC_FILE} ${PB_H_FILE})
+    #list(APPEND GRPC_SOURCES ${GRPC_PB_CC_FILE} ${GRPC_PB_H_FILE})
+
+    # Add the generated source files to the lists
+    list(APPEND PROTO_SOURCES ${PB_CC_FILE})
+    list(APPEND GRPC_SOURCES ${GRPC_PB_CC_FILE})
+
+    # Add the generated header files to the header lists (if needed for later includes)
+    list(APPEND PROTO_HEADERS ${PB_H_FILE})
+    list(APPEND GRPC_HEADERS ${GRPC_PB_H_FILE})
+
 endforeach()
 
 # Create the ProtoFiles static library from the generated Protobuf files
@@ -317,7 +370,7 @@ add_library(gen-grpc STATIC ${GRPC_SOURCES})
 # The gen-grpc library (GRPC C++ code generated from the .proto files) needs to link against these
 target_link_libraries(gen-grpc PUBLIC ${Protobuf_LIBRARIES} ${GRPC_LIBRARIES} ${CARES_LIBRARY} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} absl::flags)
 
-# So that the #include "cometbft/..." etc. statements in the generate cc/h files works
+# So that the #include "cometbft/..." etc. statements in the generate cc/h files work
 target_include_directories(ProtoFiles PUBLIC "${PROTO_ROOT_DIR}")
 target_include_directories(gen-grpc PUBLIC "${PROTO_ROOT_DIR}")
 

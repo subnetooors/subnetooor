@@ -7,7 +7,10 @@ include(SelectLibraryConfigurations)
 include(FindPackageHandleStandardArgs)
 
 find_path(CARES_INCLUDE_DIR NAMES ares.h)
-find_library(CARES_LIBRARY NAMES libcares.a)
+
+# libcares.a: package that comes with Ubuntu 22 
+# libcares-static.a: package that comes with Ubuntu 24 
+find_library(CARES_LIBRARY NAMES libcares.a libcares-static.a)
 
 SELECT_LIBRARY_CONFIGURATIONS(Cares)
 
