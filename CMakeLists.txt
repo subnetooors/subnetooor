@@ -274,8 +274,6 @@ foreach(PROTO_FILE ${PROTO_FILES})
 endforeach()
 
 
-
-
 # FIXME: for some reason, the proto/cometbft/consensus/v1/*.proto stuff is generating
 #        garbage cc/h files that are internally inconsistent and don't compile.
 #
@@ -461,8 +459,8 @@ list(APPEND PROTO_SOURCES "${PROTO_ROOT_DIR}/cometbft/store/v1/types.pb.cc")
 list(APPEND PROTO_SOURCES "${PROTO_ROOT_DIR}/cometbft/version/v1/types.pb.cc")
 list(APPEND PROTO_SOURCES "${PROTO_ROOT_DIR}/gogoproto/gogo.pb.cc")
 # *** FIXME : these are not compiling
-#list(APPEND PROTO_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/types.pb.cc")
-#list(APPEND PROTO_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/wal.pb.cc")
+list(APPEND PROTO_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/types.pb.cc")
+list(APPEND PROTO_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/wal.pb.cc")
 
 # Append .h equivalent
 foreach(source ${PROTO_SOURCES})
@@ -503,8 +501,8 @@ list(APPEND GRPC_SOURCES "${PROTO_ROOT_DIR}/cometbft/store/v1/types.grpc.pb.cc")
 list(APPEND GRPC_SOURCES "${PROTO_ROOT_DIR}/cometbft/version/v1/types.grpc.pb.cc")
 list(APPEND GRPC_SOURCES "${PROTO_ROOT_DIR}/gogoproto/gogo.grpc.pb.cc")
 # *** FIXME : these are not compiling
-#list(APPEND GRPC_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/types.grpc.pb.cc")
-#list(APPEND GRPC_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/wal.grpc.pb.cc")
+list(APPEND GRPC_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/types.grpc.pb.cc")
+list(APPEND GRPC_SOURCES "${PROTO_ROOT_DIR}/cometbft/consensus/v1/wal.grpc.pb.cc")
 
 # Append .h equivalent
 foreach(source ${GRPC_SOURCES})
@@ -992,6 +990,13 @@ add_custom_command(
        --proto_path=${PROTO_ROOT_DIR}
        --experimental_allow_proto3_optional
        "${PROTO_ROOT_DIR}/cometbft/consensus/v1/types.proto"
+
+       # Run a fix.sh script that should already be in the same dir as the generated .cc and .h files
+       # This script fixes the vote / has_vote protoc C++ code generator collisions
+       COMMAND ${CMAKE_COMMAND} -E echo "Running fix.sh script to apply sed substitutions"
+       COMMAND bash "${PROTO_ROOT_DIR}/cometbft/consensus/v1/fix.sh"
+       DEPENDS "${PROTO_ROOT_DIR}/cometbft/consensus/v1/types.proto"
+       COMMENT "Generating C++ source files and applying fixes with fix.sh"
 )
 add_custom_command(
   OUTPUT "${PROTO_ROOT_DIR}/cometbft/consensus/v1/wal.pb.cc"
