@@ -252,3 +252,270 @@ void Consensus::stop() {
   }
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------
+// TODO: Move to own file
+
+
+// Generated from .proto files
+#include <cometbft/abci/v1/service.grpc.pb.h>
+#include <cometbft/abci/v1/types.grpc.pb.h>
+
+using namespace cometbft::abci::v1;
+using namespace cometbft::crypto::v1;
+using namespace cometbft::types::v1;
+
+class ABCIServiceImpl final : public cometbft::abci::v1::ABCIService::Service {
+public:
+    ABCIServiceImpl() = default;
+
+    ~ABCIServiceImpl() override = default;
+
+    grpc::Status Echo(grpc::ServerContext* context, const EchoRequest* request, EchoResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status Flush(grpc::ServerContext* context, const FlushRequest* request, FlushResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status Info(grpc::ServerContext* context, const InfoRequest* request, InfoResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status CheckTx(grpc::ServerContext* context, const CheckTxRequest* request, CheckTxResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status Query(grpc::ServerContext* context, const QueryRequest* request, QueryResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status Commit(grpc::ServerContext* context, const CommitRequest* request, CommitResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status InitChain(grpc::ServerContext* context, const InitChainRequest* request, InitChainResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status ListSnapshots(grpc::ServerContext* context, const ListSnapshotsRequest* request, ListSnapshotsResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status OfferSnapshot(grpc::ServerContext* context, const OfferSnapshotRequest* request, OfferSnapshotResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status LoadSnapshotChunk(grpc::ServerContext* context, const LoadSnapshotChunkRequest* request, LoadSnapshotChunkResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status ApplySnapshotChunk(grpc::ServerContext* context, const ApplySnapshotChunkRequest* request, ApplySnapshotChunkResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status PrepareProposal(grpc::ServerContext* context, const PrepareProposalRequest* request, PrepareProposalResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status ProcessProposal(grpc::ServerContext* context, const ProcessProposalRequest* request, ProcessProposalResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status ExtendVote(grpc::ServerContext* context, const ExtendVoteRequest* request, ExtendVoteResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status VerifyVoteExtension(grpc::ServerContext* context, const VerifyVoteExtensionRequest* request, VerifyVoteExtensionResponse* response) override {
+        return grpc::Status::OK;
+    }
+
+    grpc::Status FinalizeBlock(grpc::ServerContext* context, const FinalizeBlockRequest* request, FinalizeBlockResponse* response) override {
+        return grpc::Status::OK;
+    }
+};
+
+void ExternalEngine::grpcServerRun() {
+
+  // TODO: This is a member var that is set with the necessary references (the BDK engine objects
+  //       that do the actual work the external consensus engine callbacks require.)
+  ABCIServiceImpl service;
+
+  // Create the GRPC listen socket/endpoint that the external engine will connect to 
+  grpc::ServerBuilder builder;
+  // InsecureServerCredentials is probably correct, we're not adding a security bureaucracy to a local RPC. use firewalls.
+  builder.AddListeningPort("127.0.0.1:50567", grpc::InsecureServerCredentials()); // FIXME: need another node configuration parameter which is the listening port for GRPC
+  builder.RegisterService(&service);
+  grpcServer_ = builder.BuildAndStart();
+
+  if (!grpcServer_) {
+    // failed to start
+    // set this to unlock the while (!grpcServerStarted_) barrier, but never set the grpcServerRunning_ flag since we 
+    //   always were in a failed state if this is the case.
+    grpcServerStarted_ = true;
+    std::cerr << "Failed to start the gRPC server!" << std::endl;
+    return;
+  }
+
+  // need to set this before grpcServerStarted_ since that flag is used as the sync barrier in ExternalEngine::start() and
+  //  after that point, detecting grpcServerRunning_ == false indicates that we are no longer running, i.e. it exited or failed.
+  grpcServerRunning_ = true; // true when we know Wait() is going to be called
+
+  // After this is set, other threads can wait a bit and then check grpcServerRunning_
+  //   to guess whether everything is working as expected.
+  grpcServerStarted_ = true;
+
+  std::cout << "gRPC Server started." << std::endl;
+
+  // This blocks until we call grpcServer_->Shutdown() from another thread 
+  grpcServer_->Wait();
+
+  grpcServerRunning_ = false; // when past Wait(), we are no longer running
+
+  std::cout << "gRPC Server stopped." << std::endl;
+}
+
+bool ExternalEngine::start() {
+
+  if (started_) return true; // already started so technically succeeded in starting it
+
+  // Ensure these are reset
+  grpcServerStarted_ = false;
+  grpcServerRunning_ = false;
+
+  // start the GRPC server
+  // assert (!server_thread)
+  grpcServerThread_.emplace(&ExternalEngine::grpcServerRun, this);
+
+  // wait until we are past opening the grpc server
+  while (!grpcServerStarted_) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+
+  // the right thing would be to connect to ourselves here and test the connection before firing up 
+  //   the external engine, but a massive enough sleep here (like 1 second) should do the job.
+  //   If 1s is not enough, make it e.g. 3s then. or use the GRPC async API which is significantly 
+  //   more complex.
+  // All we are waiting here is for the other thread to be in scheduling to be able to get into Wait()
+  //   and do a blocking read on a TCP listen socket that is already opened (or instantly fail on some
+  //   read or create error), which is almost zero work.
+  // Unless the machine's CPU is completely overloaded, a massive sleep should be able to get that
+  //   scheduled in and executed.
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
+  // if it is not running by now then it is probably because starting the GRPC server failed.
+  if (!grpcServerRunning_) {
+    std::cout << "ExternalEngine::start() failed: gRPC server failed to start." << std::endl;
+
+    // cleanup failed grpc server/thread startup
+    grpcServerThread_->join();
+    grpcServerThread_.reset();
+    grpcServer_.reset();
+
+    return false;
+  }
+
+  // run cometbft which will connect to our GRPC server
+  //
+  //  cometbft start --proxy_app="tcp://127.0.0.1:26658" --abci grpc
+  //
+  try {
+
+    // Search for the executable in the system's PATH
+    boost::filesystem::path exec_path = boost::process::search_path("cometbft");
+
+    if (exec_path.empty()) {
+      std::cerr << "Error: Executable not found in system PATH." << std::endl;
+      return false;
+    }
+
+    // TODO:
+    // - all database/config/home_dir initialization and management (integrity checks, ...)
+    // - correct runtime configuration for actual running-the-network
+
+    // Launch the process
+    process_ = boost::process::child(exec_path /*, "(arguments go here --abci grpc etc.)"" */);
+
+    std::cout << "Executable launched with PID: " << process_->id() << std::endl;
+
+  } catch (const std::exception& ex) {
+      std::cerr << "Error: " << ex.what() << std::endl;
+      return false;
+  }
+
+  started_ = true;
+  return true;
+}
+
+
+bool ExternalEngine::stop() {
+
+  if (!started_) return true;
+
+  // This if protects from a grpcServer optional that isn't set
+  //  usually this would be an impossible condition (given that started_ == true) so this may be an useless check   
+  if (grpcServer_) {
+      // this makes the grpc server thread actually terminate so we can join it 
+      grpcServer_->Shutdown();
+  }
+
+  // Wait for the server thread to finish
+  grpcServerThread_->join();
+  grpcServerThread_.reset();
+
+  // get rid of the grpcServer since it is shut down
+  grpcServer_.reset();
+
+  // Force-reset these for good measure
+  grpcServerStarted_ = false;
+  grpcServerRunning_ = false;
+
+  // process shutdown -- TODO: assuming this is needed i.e. it doesn't shut down when the connected application goes away?
+
+  // never happens because the optional should be set when started_ == true
+  if (!process_.has_value()) {
+      std::cerr << "Error: No process is running to terminate." << std::endl;
+      started_ = false;
+      return true;
+  }
+
+  // terminate the process
+  try {
+      process_->terminate();
+      std::cout << "Process with PID " << process_->id() << " terminated." << std::endl;
+      process_->wait();  // Ensure the process is fully terminated
+      std::cout << "Process with PID " << process_->id() << " joined." << std::endl;
+  } catch (const std::exception& ex) {
+
+      // TODO: this is bad, and if it actually happens, we need to be able to do something else here to ensure the process disappears
+      //   because we don't want a process using the data directory
+
+      std::cerr << "Error: Failed to terminate process: " << ex.what() << std::endl;
+      
+      // actually we are just cutting it loose (what else could we do? force a kill -9 on the PID?)
+      //return false;
+  }
+
+  // we need to get rid of the process_ instance in any case so we can start another
+  process_.reset();
+
+  started_ = false;
+  return true;
+}
+
+bool ExternalEngine::isStarted() {
+  return started_;
+}
+
+bool ExternalEngine::isRunning() {
+  return started_ && process_.has_value() && process_->running();
+}
+
+// not needed; implement other cometbft process health checks as they are actually needed 
+//bool ExternalEngine::isConnected() {
+// if (!isRunning()) return false;
+//  // FIXME/TODO check if connected
+//  return false;
+//}

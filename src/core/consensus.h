@@ -75,18 +75,63 @@ class Consensus : public Log::LogicalLocationProvider {
 // ---------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------
+// TODO: move to own file
+
+#include <boost/process.hpp>
+#include <thread>
+#include <grpcpp/grpcpp.h>
 
 class ExternalEngine {
 public:
-  ExternalEngine() {
+  ExternalEngine() : started_(false), grpcServerStarted_(false) {
   }
 
-  void setLocation(const std::string& location) { location_ = location; }
+  // TODO: use
+  //       the idea is to use the system PATH to find the executable, instead
+  //       of adding more configuration overhead.
+  //       the name of the executable can also be hard-coded for now.
+  //void setLocation(const std::string& location) { location_ = location; }
+  //std::string getLocation() { return location_; }
 
-  std::string getLocation() { return location_; }
+  // start if stopped
+  bool start();
+
+  // stop if started
+  bool stop();
+
+  // if in started state
+  bool isStarted();
+
+  // if started, returns whether the engine is running or not (i.e. pid exists)
+  // if stopped, returns false
+  bool isRunning();
+
+
+  // this makes no sense; first we can assume that if the cometbft PID is alive
+  //   then it is connected to us (if it got the GRPC server endpoint address
+  //   right and we did open it so we are reachable)
+  //
+  // if started and running, check if connected to the engine
+  //bool isConnected();
+
+
 
 private:
-  std::string location_;
+
+  void grpcServerRun();
+
+  //std::string location_; // TODO: use, or maybe not; leave in the path; or use for executable name
+
+  std::atomic<bool> started_;
+
+  std::atomic<bool> grpcServerStarted_;
+  std::atomic<bool> grpcServerRunning_;
+
+  std::optional<boost::process::child> process_;
+
+  std::unique_ptr<grpc::Server> grpcServer_;
+
+  std::optional<std::thread> grpcServerThread_;
 
 };
 

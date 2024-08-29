@@ -226,11 +226,16 @@ set(PROTO_ROOT_DIR "${CMAKE_SOURCE_DIR}/proto")
 # Find all .proto files in the proto/ directory recursively
 file(GLOB_RECURSE PROTO_FILES "${PROTO_ROOT_DIR}/*.proto")
 
-# Custom target to clean all generated .cc and .h files
-add_custom_target(CleanProtoFiles ALL
-    COMMAND ${CMAKE_COMMAND} -E echo "Cleaning old generated .cc and .h files..."
-    COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/CleanProtoFiles.cmake"
-)
+
+##
+## won't clean it, only generate once because they don't change
+## if need to regenerate, clean them manually
+##
+### Custom target to clean all generated .cc and .h files
+##add_custom_target(CleanProtoFiles ALL
+##    COMMAND ${CMAKE_COMMAND} -E echo "Cleaning old generated .cc and .h files..."
+##    COMMAND ${CMAKE_COMMAND} -P "${CMAKE_BINARY_DIR}/CleanProtoFiles.cmake"
+##)
 
 # Create a CMake script to remove files
 file(WRITE "${CMAKE_BINARY_DIR}/CleanProtoFiles.cmake"
@@ -259,12 +264,14 @@ endif()
 message(STATUS \"Removed generated .cc and .h files.\")"
 )
 
-# This forces the removal of all cc and h files from proto right here
-add_custom_target(ForceClean ALL DEPENDS CleanProtoFiles)
-set(clean_exit_message "Cleaning cc and h done.")
-message(STATUS ${clean_exit_message})
-# Exit CMake after running the cleaning command
-#return()
+##
+## won't clean it, only generate once because they don't change
+## if need to regenerate, clean them manually
+##
+### This forces the removal of all cc and h files from proto right here
+##add_custom_target(ForceClean ALL DEPENDS CleanProtoFiles)
+##set(clean_exit_message "Cleaning cc and h done.")
+##message(STATUS ${clean_exit_message})
 
 
 # Echo the proto files list
@@ -1259,11 +1266,18 @@ add_dependencies(bdk_lib gen-grpc ProtoFiles)
 
 target_include_directories(bdk_lib PRIVATE ${CMAKE_SOURCE_DIR}/include ${OPENSSL_INCLUDE_DIR})
 
+# allow #include <...> from inside src and proto
+target_include_directories(bdk_lib PRIVATE ${CMAKE_SOURCE_DIR}/src ${OPENSSL_INCLUDE_DIR})
+target_include_directories(bdk_lib PRIVATE ${CMAKE_SOURCE_DIR}/proto ${OPENSSL_INCLUDE_DIR})
+
 target_link_libraries(bdk_lib PRIVATE EvmcInstructions EvmcLoader EvmcTooling Evmone
   ${CRYPTOPP_LIBRARIES} ${SCRYPT_LIBRARY} Secp256k1 Ethash ${ETHASH_BYPRODUCTS}
   Speedb ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES}
 
   ${Protobuf_LIBRARIES} ${GRPC_LIBRARIES} ${CARES_LIBRARY} absl::flags
+ 
+  # the executables (bdkd, bdkd-tests, ...) will need these symbols:
+  PUBLIC gen-grpc ProtoFiles
 
   #grpc
   #grpc++
