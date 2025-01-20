@@ -77,6 +77,7 @@ namespace TDEXV2 {
       REQUIRE(sdk.callViewFunction(pair, &DEXV2Pair::price1CumulativeLast) == 0);
       REQUIRE(sdk.callViewFunction(pair, &DEXV2Pair::kLast) == 0);
       std::tuple<uint256_t, uint256_t, uint256_t> reservesOutput = sdk.callViewFunction(pair, &DEXV2Pair::getReserves);
+      Utils::safePrintTest("DEXV2 Testing Reserves: " + std::get<0>(reservesOutput).str() + ", " + std::get<1>(reservesOutput).str() + ", " + std::get<2>(reservesOutput).str());
       REQUIRE(std::get<0>(reservesOutput) == 0);
       REQUIRE(std::get<1>(reservesOutput) == 0);
       REQUIRE(std::get<2>(reservesOutput) == 0);
