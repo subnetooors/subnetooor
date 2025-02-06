@@ -53,6 +53,14 @@ class SafeBase {
       }
     }
 
+    /**
+     * Check if the variable is initialized (and initialize it if not).
+     * @throw std::runtime_error if not overridden by the child class.
+     */
+    inline virtual void check() const {
+      throw std::runtime_error("Derived Class from SafeBase does not override check()");
+    };
+
   public:
     /// Empty constructor. Should be used only within local variables within functions.
     SafeBase() : owner_(nullptr) {};

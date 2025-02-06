@@ -10,7 +10,13 @@ See the LICENSE.txt file in the project root for more information.
 
 #include <filesystem>
 #include <fstream>
-#include <regex> // used by jsonrpc/parser.cpp
+#include <regex>
+#include <span>
+#include <string_view>
+#include <thread>
+#include <tuple>
+#include <variant>
+#include <cmath>
 
 #include <boost/beast/core/error.hpp>
 #include <boost/asio/ip/address.hpp>
@@ -512,6 +518,18 @@ namespace Utils {
    * @return A string containing the signal name (or "Unknown signal") and number.
    */
   std::string getSignalName(int signum);
+
+  /**
+   * Templated function for calculating 10^exponent
+   */
+  template <typename T>
+  T exp10(const uint64_t& exponent) {
+    T base = 10;  // Base 10 for decimal exponentiation
+    if (exponent == 0) {
+     return T(1);
+    }
+    return boost::multiprecision::pow(base, exponent);
+  }
 };
 
 #endif  // UTILS_H

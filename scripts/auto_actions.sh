@@ -130,6 +130,14 @@ _build_action ()
     _compose_action build
 }
 
+_build_no_cache_action ()
+{
+    # update services if necessary
+    _COMPOSE_SERVICE=${_COMPOSE_SERVICE:=`(_services_action)`}
+
+    # build services
+    _compose_action build --no-cache
+}
 _start_action ()
 {
     # update services if necessary

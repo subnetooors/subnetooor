@@ -46,6 +46,17 @@ set (TESTS_SOURCES
   ${CMAKE_SOURCE_DIR}/tests/contract/executioncontext.cpp
   ${CMAKE_SOURCE_DIR}/tests/contract/evmcontractexecutor.cpp
   ${CMAKE_SOURCE_DIR}/tests/contract/throwtest.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/orderbook.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safeuint_t.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safeint_t.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safestring.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safeaddress.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safeunorderedmap.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safebool.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safebytes.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safevector.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safearray.cpp
+  ${CMAKE_SOURCE_DIR}/tests/contract/variables/safetuple.cpp
   ${CMAKE_SOURCE_DIR}/tests/core/rdpos.cpp
   ${CMAKE_SOURCE_DIR}/tests/core/storage.cpp
   ${CMAKE_SOURCE_DIR}/tests/core/state.cpp
