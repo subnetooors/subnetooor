@@ -1,6 +1,7 @@
 #ifndef BDK_MESSAGES_GAS_H
 #define BDK_MESSAGES_GAS_H
 
+#include "utils/evmcconv.h"
 #include "outofgas.h"
 
 class Gas {

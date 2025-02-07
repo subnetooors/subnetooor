@@ -247,6 +247,8 @@ namespace ABI {
     template<> struct TypeName<std::string> { static std::string get() { return "string"; }};
     template<> struct TypeName<Hash> { static std::string get() { return "bytes32"; }};
 
+    template<size_t N> struct TypeName<FixedBytes<N>> { static std::string get() { return "bytes" + std::to_string(N); } };
+
     /// Enum types are encoded as uint8_t
     template<typename T>
     requires std::is_enum_v<T> struct TypeName<T> {
@@ -414,6 +416,17 @@ namespace ABI {
         return len;
       }
     };
+
+    template <size_t N> struct TypeEncoder<FixedBytes<N>> {
+      static_assert(N <= 32);
+
+      static Bytes encode(const FixedBytes<N>& bytes) {
+        Bytes result(32);
+        std::ranges::copy(bytes, result.begin());
+        return result;
+      }
+    };
+
     template <> struct TypeEncoder<std::string> {
       static Bytes encode(const std::string& str) {
         View<Bytes> bytes = Utils::create_view_span(str);
@@ -815,6 +828,19 @@ namespace ABI {
         tmp.clear();
         tmp.insert(tmp.end(), bytes.begin() + bytesStart + 32, bytes.begin() + bytesStart + 32 + bytesLength);
         return tmp;
+      }
+    };
+
+    template<size_t N> struct TypeDecoder<FixedBytes<N>> {
+      static_assert(N <= 32);
+
+      static FixedBytes<N> decode(const View<Bytes>& bytes, uint64_t& index) {
+        if (index + 32 > bytes.size())
+          throw std::length_error("Data too short for bytes");
+
+        FixedBytes<N> result;
+        std::ranges::copy(bytes.subspan(index, N), result.begin());
+        return result;
       }
     };
 

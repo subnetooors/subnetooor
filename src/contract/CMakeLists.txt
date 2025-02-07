@@ -57,7 +57,11 @@ set(CONTRACT_SOURCES
   ${CMAKE_SOURCE_DIR}/src/contract/common.cpp
   ${CMAKE_SOURCE_DIR}/src/contract/executioncontext.cpp
   ${CMAKE_SOURCE_DIR}/src/contract/evmcontractexecutor.cpp
-  ${CMAKE_SOURCE_DIR}/src/contract/precompiles.cpp
+  ${CMAKE_SOURCE_DIR}/src/contract/precompiles/ecrecover.cpp
+  ${CMAKE_SOURCE_DIR}/src/contract/precompiles/sha256.cpp
+  ${CMAKE_SOURCE_DIR}/src/contract/precompiles/ripemd160.cpp
+  ${CMAKE_SOURCE_DIR}/src/contract/precompiles/blake2f.cpp
+  ${CMAKE_SOURCE_DIR}/src/contract/precompiles/modexp.cpp
   ${CMAKE_SOURCE_DIR}/src/contract/precompiledcontractexecutor.cpp
   ${CMAKE_SOURCE_DIR}/src/contract/templates/ownable.cpp
   ${CMAKE_SOURCE_DIR}/src/contract/templates/erc20.cpp
