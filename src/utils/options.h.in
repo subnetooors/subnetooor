@@ -87,6 +87,7 @@ class Options {
      * @param eventLogCap Maximum number of events that can be queried.
      * @param stateDumpTrigger Block number at which to dump the state.
      * @param indexingMode The node's indexing mode.
+     * @param cometBFT_ JSON configuration for CometBFT.
      */
     Options(
       const std::string& rootPath,

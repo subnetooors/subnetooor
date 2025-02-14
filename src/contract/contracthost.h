@@ -104,7 +104,7 @@ class ContractHost {
         *caller,
         func,
         args...);
-      
+
       return this->dispatchMessage(std::move(msg));
     }
 
@@ -187,19 +187,22 @@ class ContractHost {
      * @return A pointer to the contract.
      * @throw DynamicException if contract is not found or not of the requested type.
      */
-    template <typename T> 
-    T* getContract(const Address& address) {
+    template <typename T> T* getContract(const Address& address) {
       T* pointer = dynamic_cast<T*>(&context_.getContract(address));
-
-      if (pointer == nullptr) {
-        throw DynamicException("Wrong contract type");
-      }
-
+      if (pointer == nullptr) throw DynamicException("Wrong contract type");
       return pointer;
     }
 
-    template <typename... Args, bool... Flags>
-    void emitEvent(
+    /**
+     * Emit a contract event.
+     * @tparam Args The event's arguments.
+     * @tparam Flags The event's indexed flags.
+     * @param name The event's name.
+     * @param contract The address of the contract that emitted the event.
+     * @param args A list of event arguments.
+     * @param anonymous Whether the event is anonymous or not.
+     */
+    template <typename... Args, bool... Flags> void emitEvent(
       const std::string& name,
       const Address& contract,
       const std::tuple<EventParam<Args, Flags>...>& args,

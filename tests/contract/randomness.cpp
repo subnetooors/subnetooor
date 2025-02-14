@@ -1,1 +1,0 @@
-// TODO: Port the randomness tests back (use the new FinalizedBlock::getRandomness())

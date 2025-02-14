@@ -4,11 +4,11 @@
   See the LICENSE.txt file in the project root for more information.
 */
 
-#include "../src/libs/catch2/catch_amalgamated.hpp"
+#include "libs/catch2/catch_amalgamated.hpp"
 
-#include "../src/contract/templates/erc20.h"
+#include "contract/templates/erc20.h"
 
-#include "../src/utils/uintconv.h"
+#include "utils/uintconv.h"
 
 #include "../sdktestsuite.hpp"
 
@@ -53,11 +53,10 @@ namespace TERC20BENCHMARK {
       Bytes transferEncoded(functor.cbegin(), functor.cend());
       Utils::appendBytes(transferEncoded, ABI::Encoder::encodeData<Address, uint256_t>(to, uint256_t("100")));
       TxBlock transferTx = sdk.createNewTx(sdk.getChainOwnerAccount(), erc20Address, 0, transferEncoded);
-      auto& state = sdk.getState();
 
       uint64_t iterations = 2500000;
       auto start = std::chrono::high_resolution_clock::now();
-      for (uint64_t i = 0; i < iterations; i++) state.call(transferTx);
+      for (uint64_t i = 0; i < iterations; i++) sdk.benchCall(transferTx);
       auto end = std::chrono::high_resolution_clock::now();
 
       long double durationInMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -95,11 +94,10 @@ namespace TERC20BENCHMARK {
       Bytes transferEncoded(functor.cbegin(), functor.cend());
       Utils::appendBytes(transferEncoded, ABI::Encoder::encodeData<Address, uint256_t>(to, uint256_t("100")));
       TxBlock transferTx = sdk.createNewTx(sdk.getChainOwnerAccount(), erc20Address, 0, transferEncoded);
-      auto& state = sdk.getState();
 
       uint64_t iterations = 250000;
       auto start = std::chrono::high_resolution_clock::now();
-      for (uint64_t i = 0; i < iterations; i++) state.call(transferTx);
+      for (uint64_t i = 0; i < iterations; i++) sdk.benchCall(transferTx);
       auto end = std::chrono::high_resolution_clock::now();
 
       long double durationInMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();

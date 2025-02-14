@@ -9,7 +9,7 @@
     "stateDumpTrigger": 1000,
     "chainOwner": "0x00dead00665771855a34155f5e7405489df2c3c6",
     "chainOwnerInitialBalance": "10000000000000000000000",
-    "indexingMode": "RPC",
+    "indexingMode": "RPC_TRACE",
     "cometBFT": {
       "genesis.json": {
         "genesis_time": "2024-09-17T18:26:34.583377166Z",

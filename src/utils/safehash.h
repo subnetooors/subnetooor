@@ -26,7 +26,7 @@ struct SafeHash {
   using is_transparent = void;
 
   ///@{
-  /** Wrapper for `splitmix()`. */
+  /** Wrapper for `wyhash()`. */
   size_t operator()(const uint64_t& i) const {
     return wyhash(std::bit_cast<const void*>(&i), sizeof(i), 0, _wyp);
   }
@@ -59,8 +59,7 @@ struct SafeHash {
     return wyhash(data.data(), data.size(), 0, _wyp);
   }
 
-  template<typename T, typename U>
-  size_t operator()(const std::pair<T, U>& pair) const {
+  template<typename T, typename U> size_t operator()(const std::pair<T, U>& pair) const {
     size_t hash = (*this)(pair.first);
     boost::hash_combine(hash, pair.second);
     return hash;

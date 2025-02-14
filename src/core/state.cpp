@@ -348,10 +348,10 @@ int64_t State::estimateGas(EncodedMessageVariant msg) {
   std::unique_lock lock(this->stateMutex_);
 
   ExecutionContext context = ExecutionContext::Builder{}
-      .storage(this->vmStorage_)
-      .accounts(this->accounts_)
-      .contracts(this->contracts_)
-      .build();
+    .storage(this->vmStorage_)
+    .accounts(this->accounts_)
+    .contracts(this->contracts_)
+    .build();
 
   const Hash randomSeed = bytes::random();
 
@@ -859,4 +859,35 @@ uint64_t State::getNativeNonce(const Address& addr) const {
   if (it == this->accounts_.end()) return 0;
   return it->second->nonce;
 }
+
+#if defined(BUILD_TESTS) && defined(BUILD_BENCHMARK_TESTS)
+// Adapted from State::processTransaction() as the process is the same
+void State::benchCall(const TxBlock& tx) {
+  std::unique_lock lock(this->stateMutex_);
+
+  ExecutionContext context = ExecutionContext::Builder{}
+    .storage(this->vmStorage_)
+    .accounts(this->accounts_)
+    .contracts(this->contracts_)
+    .blockHash(Hash())
+    .txHash(tx.hash())
+    .txOrigin(tx.getFrom())
+    .blockCoinbase(ContractGlobals::getCoinbase())
+    .txIndex(0)
+    .blockNumber(ContractGlobals::getBlockHeight())
+    .blockTimestamp(ContractGlobals::getBlockTimestamp())
+    .blockGasLimit(10'000'000)
+    .txGasPrice(tx.getMaxFeePerGas())
+    .chainId(blockchain_.opt().getChainID())
+    .build();
+
+  ContractHost host(this->vm_, blockchain_.storage(), Hash(), context);
+
+  Gas gas(uint64_t(tx.getGasLimit()));
+
+  std::visit([&] (auto&& msg) {
+    host.execute(std::forward<decltype(msg)>(msg));
+  }, tx.toMessage(gas));
+};
+#endif
 

@@ -53,19 +53,26 @@ configure_file(
 )
 
 # External project data
-set(BUILD_TESTS ON CACHE BOOL "Build helper unit testing program")
+set(BUILD_TESTS ON CACHE BOOL "Build unit tests")
+set(BUILD_SAFEVAR_TESTS ON CACHE BOOL "Build tests for SafeVars (contract variables) - requires BUILD_TESTS")
+set(BUILD_BENCHMARK_TESTS OFF CACHE BOOL "Build tests for benchmarks - requires BUILD_TESTS")
 set(BUILD_DISCOVERY ON CACHE BOOL "Build helper discovery node program")
 set(BUILD_TOOLS OFF CACHE BOOL "Build tools related to subnet")
 set(BUILD_TESTNET OFF CACHE BOOL "Build the project for testnet")
-set(BUILD_BENCHMARK OFF CACHE BOOL "Build with the benchmark tests")
-set(BUILD_VARIABLES_TESTS ON CACHE BOOL "Build tests for SafeVar (Contract variables)")
 set(USE_LINT OFF CACHE BOOL "Run linter on compile (clang-tidy)")
 if(USE_LINT)
   set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-header-filter=.;-checks=-*,abseil-*,boost-*,bugprone-*,cert-*,clang-analyzer-*,concurrency-*,cppcoreguidelines-*,hicpp-*,misc-*,modernize-*,performance-*,portability-*,readability-*")
 endif()
 
+# Set preprocessor macros based on CMake flags
 if(BUILD_TESTNET)
   add_definitions(-DBUILD_TESTNET)
+endif()
+if(BUILD_TESTS)
+  add_compile_definitions(BUILD_TESTS)
+endif()
+if(BUILD_BENCHMARK_TESTS)
+  add_compile_definitions(BUILD_BENCHMARK_TESTS)
 endif()
 
 # Echo CMake vars during config
@@ -76,11 +83,11 @@ message(STATUS "C++ flags: ${CMAKE_CXX_FLAGS}")
 message(STATUS "Using PIC: ${CMAKE_POSITION_INDEPENDENT_CODE}")
 message(STATUS "Find libs with suffix: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
 message("Building tests: ${BUILD_TESTS}")
+message("Building SafeVar tests: ${BUILD_SAFEVAR_TESTS}")
+message("Building benchmark tests: ${BUILD_BENCHMARK_TESTS}")
 message("Building Discovery Node: ${BUILD_DISCOVERY}")
 message("Building tools: ${BUILD_TOOLS}")
 message("Building testnet: ${BUILD_TESTNET}")
-message("Building benchmark tests: ${BUILD_BENCHMARK}")
-message("Building SafeVar tests: ${BUILD_VARIABLES_TESTS}")
 message("Using lint: ${USE_LINT}")
 
 cable_add_buildinfo_library(PROJECT_NAME bdk)

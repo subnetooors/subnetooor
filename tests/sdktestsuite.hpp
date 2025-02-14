@@ -8,13 +8,14 @@ See the LICENSE.txt file in the project root for more information.
 #ifndef SDKTESTSUITE_H
 #define SDKTESTSUITE_H
 
-#include "../src/core/blockchain.h" // net/http/httpserver.h, consensus.h -> state.h
+#include "core/blockchain.h" // net/http/httpserver.h, consensus.h -> state.h
 
-#include "../src/utils/evmcconv.h"
-#include "../src/utils/uintconv.h"
-#include "../src/utils/contractreflectioninterface.h"
+#include "utils/evmcconv.h"
+#include "utils/uintconv.h"
+#include "utils/contractreflectioninterface.h"
 
-#include "../src/contract/event.h"
+#include "contract/event.h"
+
 #include "bytes/random.h"
 
 /// Key values required by one Comet node
@@ -76,7 +77,6 @@ struct TestAccount {
  */
 class SDKTestSuite : public Blockchain {
   private:
-
     /// Owner of the chain (0x00dead00...).
     static TestAccount chainOwnerAccount() {
       return TestAccount(PrivKey(Hex::toBytes("0xe89ef6409c467285bcae9f80ab1cfeb3487cfe61ab28fb7d36443e1daa0c2867")));
@@ -100,6 +100,19 @@ class SDKTestSuite : public Blockchain {
     std::vector<TestAccount> testAccounts_;
 
   public:
+    /// Construct a test Blockchain.
+    explicit SDKTestSuite(
+      const Options& options,
+      const std::string instanceId = "",
+      const std::vector<TestAccount>& accounts = {}
+    ) : Blockchain(options, options.getRootPath(), instanceId), testAccounts_(accounts) {
+      // Existing testcases like SimpleContract don't call start(), so the ctor must start().
+      start();
+    }
+
+    /// Destructor. Ensure the Blockchain is stopped before it is destroyed.
+    ~SDKTestSuite() { stop(); }
+
     ///@{
     /* Getter. */
     Options& getOptions() { return this->options_; }
@@ -108,6 +121,11 @@ class SDKTestSuite : public Blockchain {
     Storage& getStorage() { return this->storage_; }
     HTTPServer& getHttp() { return this->http_; }
     ///@}
+
+    #if defined(BUILD_TESTS) && defined(BUILD_BENCHMARK_TESTS)
+    /// Wrapper for State::benchCall() (so we don't have to get State beforehand).
+    void benchCall(TxBlock tx) { this->state_.benchCall(tx); }
+    #endif
 
     /// Get next P2P listen port to use in unit tests.
     static int getTestPort() {
@@ -134,24 +152,6 @@ class SDKTestSuite : public Blockchain {
           SLOGFATAL_THROW("Exhausted tries while searching for a free port number");
         }
       }
-    }
-
-    /// Construct a test Blockchain.
-    explicit SDKTestSuite(
-      const Options& options,
-      const std::string instanceId = "",
-      const std::vector<TestAccount>& accounts = {}
-    )
-      : Blockchain(options, options.getRootPath(), instanceId),
-        testAccounts_(accounts)
-    {
-      // Existing testcases like SimpleContract don't call start(), so the ctor must start().
-      start();
-    }
-
-    /// Destructor. Ensure the Blockchain is stopped before it is destroyed.
-    ~SDKTestSuite() {
-      stop();
     }
 
     /// Getter for `chainOwnerAccount_`.
@@ -377,7 +377,7 @@ class SDKTestSuite : public Blockchain {
       );
       ret = tx.hash();
       // Check if the execution is not going to be reverted/throw
-      this->advanceChain({tx}); // timestamp,
+      this->advanceChain({tx});
       return ret;
     }
 
@@ -416,15 +416,16 @@ class SDKTestSuite : public Blockchain {
       Utils::appendBytes(
         txData, ABI::Encoder::encodeData<Args...>(std::forward<decltype(args)>(args)...)
       );
-      // Use the chain owner account if no account is provided
 
+      // Use the chain owner account if no account is provided
       TxBlock tx = this->createNewTx(
         ((!testAccount) ? this->getChainOwnerAccount() : testAccount),
         contractAddress, value, txData
       );
       ret = tx.hash();
+
       // Check if the execution is not going to be reverted/throw
-      this->advanceChain({tx}); // timestamp,
+      this->advanceChain({tx});
       return ret;
     }
 

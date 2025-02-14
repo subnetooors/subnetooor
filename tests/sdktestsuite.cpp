@@ -5,12 +5,15 @@ This software is distributed under the MIT License.
 See the LICENSE.txt file in the project root for more information.
 */
 
-#include "../../src/libs/catch2/catch_amalgamated.hpp"
+// TODO: split the SDKTestSuite impl from the "main" part of the tests (if possible)
 
-#include "../../src/utils/clargs.h" // ProcessOptions
-#include "../../src/core/comet.h"
+#include "libs/catch2/catch_amalgamated.hpp"
 
-#include "../../src/contract/contracthost.h" // ContractHost::deriveContractAddress()
+#include "utils/clargs.h" // ProcessOptions
+
+#include "core/comet.h"
+
+#include "contract/contracthost.h" // ContractHost::deriveContractAddress()
 
 #include "sdktestsuite.hpp"
 
@@ -168,13 +171,9 @@ void SDKTestSuite::advanceChain(std::vector<TxBlock>&& txs) {
     if (!state_.validateTransaction(tx, false)) {
       throw DynamicException("Transaction " + tx.hash().hex().get() + " is invalid");
     }
-    // Serialize it
+    // Serialize it, send it, take the sha3 of the serialized tx and add it to set of expected txs
     Bytes txBytes = tx.rlpSerialize();
-    // Send it.
-    //std::shared_ptr<Hash> ethHash = std::make_shared<Hash>();
-    uint64_t tId = comet_.sendTransaction(txBytes/*, &ethHash*/);
-    // Take the sha3 of the serialized tx and add it to the set of
-    // expected transactions.
+    [[maybe_unused]] uint64_t tId = comet_.sendTransaction(txBytes);
     Hash txHash = Utils::sha3(txBytes);
     lock.lock();
     advanceChainPendingTxs_.insert(txHash);
@@ -186,9 +185,7 @@ void SDKTestSuite::advanceChain(std::vector<TxBlock>&& txs) {
   // (height check is so that this method does something even with an empty txs arg)
   while (true) {
     lock.lock();
-    if (advanceChainPendingTxs_.empty() && advanceChainHeight_ > startingHeight) {
-      break;
-    }
+    if (advanceChainPendingTxs_.empty() && advanceChainHeight_ > startingHeight) break;
     lock.unlock();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
@@ -326,6 +323,7 @@ SDKTestSuite SDKTestSuite::createNewEnvironment(
 
     // Discovery nodes will be implemented using cometbft seed-nodes
 
+    // TODO: this should not be hardcoded but rather using templates from nodeopts, revise the whole function later
     options_ = std::make_unique<Options>(
       sdkPath,
       "BDK/cpp/linux_x86-64/0.2.0",
@@ -337,7 +335,7 @@ SDKTestSuite SDKTestSuite::createNewEnvironment(
       2000,
       10000,
       1000,
-      IndexingMode::RPC_TRACE,
+      IndexingMode::RPC_TRACE, // Values other than DISABLED actually hurt benchmarks
       defaultCometBFTOptions
     );
   } else {

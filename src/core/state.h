@@ -16,6 +16,11 @@ See the LICENSE.txt file in the project root for more information.
 #include "../utils/logger.h"
 #include "../utils/safehash.h"
 
+#if defined(BUILD_TESTS) && defined(BUILD_BENCHMARK_TESTS)
+// Forward declaration. Used only for benchmarking purposes.
+class SDKTestSuite;
+#endif
+
 /// Mempool model to help validate multiple txs with same from account and various nonce values.
 using MempoolModel =
   std::unordered_map<
@@ -122,6 +127,13 @@ class State : public Log::LogicalLocationProvider {
      *        address that isn't a contract has any code.
      */
     void contractSanityCheck(const Address& addr, const Account& acc);
+
+    #if defined(BUILD_TESTS) && defined(BUILD_BENCHMARK_TESTS)
+    // Process a transaction directly without having to put it in a block.
+    // FOR TESTING PURPOSES ONLY. DO NOT COMPILE FOR PRODUCTION
+    void benchCall(const TxBlock& tx);
+    friend class SDKTestSuite;  // It's the only class that uses this function
+    #endif
 
   public:
     State(Blockchain& blockchain); ///< Constructor.
